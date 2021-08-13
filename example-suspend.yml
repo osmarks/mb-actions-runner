@@ -8,7 +8,7 @@ jobs:
       server-id: ${{ steps.start-runner.outputs.server-id }}
     steps:
       - id: start-runner
-        uses: osmarks/actions-test@70937133eed4422d2d7828ed17ad2c3bcfcc052b
+        uses: osmarks/mb-actions-runner@v1
         with:
           action: unsuspend
           gh-token: ${{ secrets.GH_TOKEN }}
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ always() }}
     steps:
-      - uses: osmarks/actions-test@70937133eed4422d2d7828ed17ad2c3bcfcc052b
+      - uses: osmarks/mb-actions-runner@v1
         with:
           action: suspend
           gh-token: ${{ secrets.GH_TOKEN }}
