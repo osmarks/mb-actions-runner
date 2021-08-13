@@ -92,8 +92,6 @@ def configure_server(ip, port, key, regtoken, id):
     ]
     if "INPUT_SSH-PUBKEY" in os.environ:
         commands.append(f"bash -c 'echo {os.environ['INPUT_SSH-PUBKEY']} >> /root/.ssh/authorized_keys'")
-        commands.append("ls -la /root")
-        commands.append("cat /root/.ssh/authorized_keys")
     print(commands)
     for command in commands:
         _, stdout, stderr = client.exec_command(command)
