@@ -1,0 +1,43 @@
+name: On-demand Mythic Beasts VPS self-hosted runner manager
+description: Starts/stops on-demand VPSes with Mythic Beasts and manages a GitHub self-hosted runner
+author: osmarks
+inputs:
+  action:
+    description: start or stop
+    required: true
+  gh-token:
+    description: personal access token with access to this repo.
+    required: true
+  mb-token:
+    description: Mythic Beasts client ID with access to on-demand VPS provisoning
+    required: true
+  mb-secret:
+    description: corresponding client secret
+    required: true
+  image-id:
+    description: image file to load onto new VPS
+    required: false
+    default: 01-cloudinit-debian-buster.raw.gz
+  vps-type:
+    description: VPS type to start
+    required: false
+    default: VPSX16
+  vps-disk:
+    description: disk space for VPS (MB)
+    required: false
+    default: 5120
+  server-id:
+    description: required to stop - randomly generated ID string for the VPS and runner
+    required: false
+  unsuspend-only:
+    description: if "true", unsuspend mode will not create a new VPS if the named one does not exist
+    required: false
+  ssh-pubkey:
+    description: install SSH public key on newly configured servers
+    required: false
+outputs:
+  server-id:
+    description: generated ID from start action
+runs:
+  using: docker
+  image: Dockerfile

@@ -1,0 +1,41 @@
+name: test-action
+on: [push]
+jobs:
+  start-runner:
+    name: Start VPS
+    runs-on: ubuntu-latest
+    outputs:
+      server-id: ${{ steps.start-runner.outputs.server-id }}
+    steps:
+      - id: start-runner
+        uses: osmarks/actions-test@70937133eed4422d2d7828ed17ad2c3bcfcc052b
+        with:
+          action: unsuspend
+          gh-token: ${{ secrets.GH_TOKEN }}
+          mb-token: ${{ secrets.MB_TOKEN }}
+          mb-secret: ${{ secrets.MB_SECRET }}
+          server-id: omghr
+          ssh-pubkey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDUvByHXHVxh6PvrW0ajEtTlcqY1AF/yIC/uDdteC0mg osmarks@fenrir
+          #unsuspend-only: true
+  run-action:
+    name: Execute thing on runner
+    needs: start-runner
+    runs-on: omghr
+    steps:
+      - name: Hello World
+        run: echo Hello World!
+  stop-runner:
+    name: Stop VPS
+    needs:
+      - start-runner
+      - run-action
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - uses: osmarks/actions-test@70937133eed4422d2d7828ed17ad2c3bcfcc052b
+        with:
+          action: suspend
+          gh-token: ${{ secrets.GH_TOKEN }}
+          mb-token: ${{ secrets.MB_TOKEN }}
+          mb-secret: ${{ secrets.MB_SECRET }}
+          server-id: omghr
