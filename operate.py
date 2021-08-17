@@ -1,11 +1,10 @@
-from logging import currentframe
 import random
 import time
 import requests
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
-import paramiko
 import os, os.path
+import json.decoder
 
 if os.path.exists(".env"):
     with open(".env") as f:
@@ -23,10 +22,15 @@ gh_api = "https://api.github.com"
 mb_api = "https://api.mythic-beasts.com"
 disk_size = int(os.environ["INPUT_VPS-DISK"])
 
-def do_req(method, url, auth, json=None, propagate_http_error=True):
+def do_req(method, url, auth, jsondata=None, propagate_http_error=True):
     headers, auth_arg = ({"Authorization": auth}, None) if isinstance(auth, str) else (None, auth)
-    res = requests.request(method, url, headers=headers, json=json, auth=auth_arg)
-    if propagate_http_error and not (200 <= res.status_code <= 299): raise Exception(f"{method} {url} failed: {res.json().get('error', res.text)} (HTTP {res.status_code})")
+    res = requests.request(method, url, headers=headers, json=jsondata, auth=auth_arg)
+    if propagate_http_error and not (200 <= res.status_code <= 299):
+        try:
+            errtext = res.json()["error"]
+        except (json.decoder.JSONDecodeError, KeyError):
+            errtext = res.text
+        raise Exception(f"{method} {url} failed: {errtext} (HTTP {res.status_code})")
     return res
 
 def do_github_req(method, url, *args, **kwargs): return do_req(method, gh_api + url, gh_auth, *args, **kwargs)
@@ -55,24 +59,36 @@ def gc_old_servers():
                 print("Shutting down", server_id)
                 stop_server(server_id)
 
-def start_server(server_id):
+def start_server(server_id, regtoken):
     gc_old_servers()
     if not server_id:
         server_id = f"gha{int(time.time()):09x}{random.randint(0, 0xFFFF_FFFF):08x}"
-    key = paramiko.ECDSAKey.generate()
+    commands = [
+        "mkdir /root/runner",
+        "cd /root/runner",
+        "echo Downloading",
+        "wget -q https://github.com/actions/runner/releases/download/v2.279.0/actions-runner-linux-x64-2.279.0.tar.gz",
+        "tar xzf ./actions-runner-linux-x64-2.279.0.tar.gz",
+        "echo Extracted",
+        f"env RUNNER_ALLOW_RUNASROOT=1 ./config.sh --url https://github.com/{owner}/{repo} --token {regtoken} --labels {server_id} --unattended",
+        "env RUNNER_ALLOW_RUNASROOT=1 nohup ./run.sh > /dev/null 2> /dev/null < /dev/null &",
+        "echo Configured and started",
+        """echo "@reboot root cd /root/runner/ && env RUNNER_ALLOW_RUNASROOT=1 nohup ./run.sh > /dev/null 2> /dev/null < /dev/null &" >> /etc/crontab""",
+    ]
     result = do_mb_req("POST", f"/beta/vps/servers/{server_id}",
         {
            "product": vdstype,
-           "ssh_keys": f"ecdsa-sha2-nistp256 {key.get_base64()}",
+           "ssh_keys": os.environ.get("INPUT_SSH-PUBKEY", ""),
            "disk_size": disk_size,
-           "image": image_name
+           "image": image_name,
+           "user_data_string": "#!/bin/sh\n" + "\n".join(commands)
         }
     )
     # Poll for server boot/install status
     while True:
         poll_result = do_mb_req("GET", result.headers["Location"]).json()
         if poll_result["status"] == "running":
-            return key, server_id, poll_result
+            return server_id, poll_result
         else:
             print(poll_result["status"])
             time.sleep(10)
@@ -81,29 +97,6 @@ def get_runner_by_name(name):
     runners = do_github_req("GET", f"/repos/{owner}/{repo}/actions/runners").json()
     for runner in runners["runners"]:
         if runner["name"] == name: return runner["id"]
-
-def configure_server(ip, port, key, regtoken, id):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-    client.connect(ip, port, "root", pkey=key)
-    print("Configuring runner")
-    # Download and start up self-hosted runner program
-    commands = [
-        "wget https://github.com/actions/runner/releases/download/v2.279.0/actions-runner-linux-x64-2.279.0.tar.gz",
-        "tar xzf ./actions-runner-linux-x64-2.279.0.tar.gz",
-        f"env RUNNER_ALLOW_RUNASROOT=1 ./config.sh --url https://github.com/{owner}/{repo} --token {regtoken} --labels {id} --unattended",
-        "bash -c 'env RUNNER_ALLOW_RUNASROOT=1 nohup ./run.sh > /dev/null 2> /dev/null < /dev/null &'",
-        """bash -c 'echo "@reboot root cd /root/ && env RUNNER_ALLOW_RUNASROOT=1 nohup ./run.sh > /dev/null 2> /dev/null < /dev/null &" >> /etc/crontab'""",
-        "chown root:root /root"
-    ]
-    if "INPUT_SSH-PUBKEY" in os.environ:
-        commands.append(f"bash -c 'echo {os.environ['INPUT_SSH-PUBKEY']} >> /root/.ssh/authorized_keys'")
-    print(commands)
-    for command in commands:
-        _, stdout, stderr = client.exec_command(command)
-        print(stdout.readlines(), stderr.readlines())
-    print("Startup done")
-    client.close()
 
 def stop_server(server_id):
     # delete server and runner
@@ -135,14 +128,8 @@ def unsuspend_server(server_id):
 def start_and_configure(server_id):
     # generate registration token to initialize a new self-hosted runner
     runner_token = do_github_req("POST", f"/repos/{owner}/{repo}/actions/runners/registration-token").json()["token"]
-    key, id, info = start_server(server_id)
+    id, info = start_server(server_id, runner_token)
     print(f"::set-output name=server-id::{id}")
-    proxy = info["ssh_proxy"]
-    # add delay for admin proxy URL to work
-    time.sleep(10)
-    # SSH proxy is needed as the VMs don't seem to have IPv6 capability
-    key.write_private_key_file("key.tmp")
-    configure_server(proxy["hostname"], proxy["port"], key, runner_token, id)
 
 def suspend_server(server_id):
     # servers must be powered down before dormancy
