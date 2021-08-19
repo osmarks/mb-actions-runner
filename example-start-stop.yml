@@ -1,4 +1,4 @@
-name: test-action
+name: example-workflow
 on: [push]
 jobs:
   start-runner:
@@ -14,7 +14,7 @@ jobs:
           gh-token: ${{ secrets.GH_TOKEN }}
           mb-token: ${{ secrets.MB_TOKEN }}
           mb-secret: ${{ secrets.MB_SECRET }}
-          #ssh-pubkey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDUvByHXHVxh6PvrW0ajEtTlcqY1AF/yIC/uDdteC0mg
+          # ssh-pubkey: optionally configure this
   run-action:
     name: Execute thing on runner
     needs: start-runner

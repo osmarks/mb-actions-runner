@@ -1,5 +1,5 @@
 name: On-demand Mythic Beasts VPS self-hosted runner manager
-description: Starts/stops on-demand VPSes with Mythic Beasts and manages a GitHub self-hosted runner
+description: Starts/stops on-demand VPSes with Mythic Beasts and manages GitHub self-hosted runners on them
 author: osmarks
 inputs:
   action:
@@ -8,6 +8,9 @@ inputs:
   gh-token:
     description: personal access token with access to this repo.
     required: true
+  gh-token-owner:
+    description: owner of the personal access token in gh-token, if it is different to the owner of the repository this runs on
+    required: false
   mb-token:
     description: Mythic Beasts client ID with access to on-demand VPS provisoning
     required: true
@@ -27,7 +30,7 @@ inputs:
     required: false
     default: 5120
   server-id:
-    description: required to stop - randomly generated ID string for the VPS and runner
+    description: required to stop or (un)suspend - ID string for the VPS and runner (randomly generated if in stop/start mode)
     required: false
   unsuspend-only:
     description: if "true", unsuspend mode will not create a new VPS if the named one does not exist

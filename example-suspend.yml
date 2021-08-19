@@ -1,4 +1,4 @@
-name: test-action
+name: example-workflow
 on: [push]
 jobs:
   start-runner:
@@ -19,7 +19,7 @@ jobs:
   run-action:
     name: Execute thing on runner
     needs: start-runner
-    runs-on: # to fill in! must be the same as server-id in other steps
+    runs-on: # to fill in. must be the same as server-id in other steps
     steps:
       - name: Hello World
         run: echo Hello World!
