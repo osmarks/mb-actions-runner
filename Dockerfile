@@ -1,6 +1,5 @@
-FROM python:3
+FROM python:3-alpine
 COPY operate.py /operate.py
-RUN apt-get update
-RUN apt-get install -y python3-requests python3-paramiko python3-requests-oauthlib
-ENTRYPOINT ["python3.7"]
+RUN apk add py3-requests py3-requests-oauthlib
+ENTRYPOINT ["python3"]
 CMD ["/operate.py"]

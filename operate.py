@@ -1,3 +1,8 @@
+# bodge around weird runner environment
+import sys
+if not "/usr/lib/python3.9/site-packages" in sys.path:
+    sys.path.append("/usr/lib/python3.9/site-packages")
+
 import random
 import time
 import requests
@@ -16,7 +21,7 @@ if os.path.exists(".env"):
 owner, repo = os.environ["GITHUB_REPOSITORY"].split("/")
 vdstype = os.environ["INPUT_VPS-TYPE"]
 mb_auth = (os.environ["INPUT_MB-TOKEN"], os.environ["INPUT_MB-SECRET"])
-gh_auth = (owner, os.environ["INPUT_GH-TOKEN"])
+gh_auth = (os.environ.get("INPUT_GH-TOKEN-OWNER", owner), os.environ["INPUT_GH-TOKEN"])
 image_name = os.environ["INPUT_IMAGE-ID"]
 gh_api = "https://api.github.com"
 mb_api = "https://api.mythic-beasts.com"
